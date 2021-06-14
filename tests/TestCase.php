@@ -10,10 +10,10 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Redis\RedisServiceProvider;
 use Laravel\Scout\ScoutServiceProvider as LaravelScoutServiceProvider;
 use Nuwave\Lighthouse\GlobalId\GlobalIdServiceProvider;
-use Nuwave\Lighthouse\GraphQL;
 use Nuwave\Lighthouse\LighthouseServiceProvider;
 use Nuwave\Lighthouse\OrderBy\OrderByServiceProvider;
 use Nuwave\Lighthouse\Pagination\PaginationServiceProvider;
+use Nuwave\Lighthouse\Schema\SchemaBuilder;
 use Nuwave\Lighthouse\Scout\ScoutServiceProvider as LighthouseScoutServiceProvider;
 use Nuwave\Lighthouse\SoftDeletes\SoftDeletesServiceProvider;
 use Nuwave\Lighthouse\Support\AppVersion;
@@ -152,6 +152,10 @@ GRAPHQL;
 
         // Defaults to "algolia", which is not needed in our test setup
         $config->set('scout.driver', null);
+
+        $config->set('lighthouse.federation', [
+            'entities_resolver_namespace' => 'Tests\\Utils\\Entities',
+        ]);
     }
 
     /**
@@ -190,9 +194,10 @@ GRAPHQL;
     {
         $this->schema = $schema;
 
-        return $this->app
-            ->make(GraphQL::class)
-            ->prepSchema();
+        /** @var \Nuwave\Lighthouse\Schema\SchemaBuilder $schemaBuilder */
+        $schemaBuilder = $this->app->make(SchemaBuilder::class);
+
+        return $schemaBuilder->schema();
     }
 
     /**

@@ -18,6 +18,7 @@ class PaginationServiceProvider extends ServiceProvider
             function (ManipulateAST $manipulateAST): void {
                 $documentAST = $manipulateAST->documentAST;
                 $documentAST->setTypeDefinition(self::paginatorInfo());
+                $documentAST->setTypeDefinition(self::simplePaginatorInfo());
                 $documentAST->setTypeDefinition(self::pageInfo());
             }
         );
@@ -35,7 +36,7 @@ class PaginationServiceProvider extends ServiceProvider
         return Parser::objectTypeDefinition(/** @lang GraphQL */ '
             "Pagination information about the corresponding list of items."
             type PaginatorInfo {
-              "Total count of available items in the page."
+              "Count of available items in the page."
               count: Int!
 
               "Current pagination page."
@@ -58,6 +59,29 @@ class PaginationServiceProvider extends ServiceProvider
 
               "Total items available in the collection."
               total: Int!
+            }
+        ');
+    }
+
+    protected static function simplePaginatorInfo(): ObjectTypeDefinitionNode
+    {
+        return Parser::objectTypeDefinition(/** @lang GraphQL */ '
+            "Pagination information about the corresponding list of items."
+            type SimplePaginatorInfo {
+              "Count of available items in the page."
+              count: Int!
+
+              "Current pagination page."
+              currentPage: Int!
+
+              "Index of first item in the current page."
+              firstItem: Int
+
+              "Index of last item in the current page."
+              lastItem: Int
+
+              "Number of items per page in the collection."
+              perPage: Int!
             }
         ');
     }

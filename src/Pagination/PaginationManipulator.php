@@ -8,6 +8,7 @@ use GraphQL\Language\Parser;
 use Nuwave\Lighthouse\Exceptions\DefinitionException;
 use Nuwave\Lighthouse\Schema\AST\ASTHelper;
 use Nuwave\Lighthouse\Schema\AST\DocumentAST;
+use Nuwave\Lighthouse\Schema\Directives\ModelDirective;
 
 class PaginationManipulator
 {
@@ -63,6 +64,8 @@ class PaginationManipulator
     ): void {
         if ($paginationType->isConnection()) {
             $this->registerConnection($fieldDefinition, $parentType, $defaultCount, $maxCount, $edgeType);
+        } elseif ($paginationType->isSimple()) {
+            $this->registerSimplePaginator($fieldDefinition, $parentType, $defaultCount, $maxCount);
         } else {
             $this->registerPaginator($fieldDefinition, $parentType, $defaultCount, $maxCount);
         }
@@ -152,7 +155,10 @@ GRAPHQL
             $objectType = $existingType;
         }
 
-        if ($this->modelClass) {
+        if (
+            $this->modelClass
+            && ! ASTHelper::hasDirective($objectType, ModelDirective::NAME)
+        ) {
             $objectType->directives [] = Parser::constDirective('@model(class: "'.addslashes($this->modelClass).'")');
         }
 
@@ -188,7 +194,50 @@ GRAPHQL
         $fieldDefinition->arguments [] = Parser::inputValueDefinition(
             self::countArgument($defaultCount, $maxCount)
         );
-        $fieldDefinition->arguments [] = Parser::inputValueDefinition("\"The offset from which elements are returned.\"\npage: Int");
+        $fieldDefinition->arguments [] = Parser::inputValueDefinition(/** @lang GraphQL */ <<<'GRAPHQL'
+"The offset from which elements are returned."
+page: Int
+GRAPHQL
+);
+
+        $fieldDefinition->type = Parser::namedType($paginatorTypeName);
+        $parentType->fields = ASTHelper::mergeUniqueNodeList($parentType->fields, [$fieldDefinition], true);
+    }
+
+    /**
+     * Register simple paginator with schema.
+     */
+    protected function registerSimplePaginator(
+        FieldDefinitionNode &$fieldDefinition,
+        ObjectTypeDefinitionNode &$parentType,
+        ?int $defaultCount = null,
+        ?int $maxCount = null
+    ): void {
+        $fieldTypeName = ASTHelper::getUnderlyingTypeName($fieldDefinition);
+        $paginatorTypeName = "{$fieldTypeName}SimplePaginator";
+        $paginatorFieldClassName = addslashes(SimplePaginatorField::class);
+
+        $paginatorType = Parser::objectTypeDefinition(/** @lang GraphQL */ <<<GRAPHQL
+            "A paginated list of $fieldTypeName items."
+            type $paginatorTypeName {
+                "Pagination information about the list of items."
+                paginatorInfo: SimplePaginatorInfo! @field(resolver: "{$paginatorFieldClassName}@paginatorInfoResolver")
+
+                "A list of $fieldTypeName items."
+                data: [$fieldTypeName!]! @field(resolver: "{$paginatorFieldClassName}@dataResolver")
+            }
+GRAPHQL
+        );
+        $this->addPaginationWrapperType($paginatorType);
+
+        $fieldDefinition->arguments [] = Parser::inputValueDefinition(
+            self::countArgument($defaultCount, $maxCount)
+        );
+        $fieldDefinition->arguments [] = Parser::inputValueDefinition(/** @lang GraphQL */ <<<'GRAPHQL'
+"The offset from which elements are returned."
+page: Int
+GRAPHQL
+        );
 
         $fieldDefinition->type = Parser::namedType($paginatorTypeName);
         $parentType->fields = ASTHelper::mergeUniqueNodeList($parentType->fields, [$fieldDefinition], true);
