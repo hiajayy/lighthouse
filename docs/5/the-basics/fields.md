@@ -172,7 +172,7 @@ Let's play through what happens when the client send's the following query:
 ```
 
 First, the resolver for `user` will be called. Let's suppose it returns an instance
-of `App\Model\User`.
+of `App\Models\User`.
 
 Next, the field sub-selection will be resolved - the two requested fields are `id` and `name`.
 Since we already resolved the User in the parent field, we do not want to fetch it again
